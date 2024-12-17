@@ -1,0 +1,7 @@
+# Ignore compiled files
+*.o
+main
+
+# Ignore testing logs or temporary files
+/testing/*.txt
+
