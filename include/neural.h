@@ -23,6 +23,8 @@ void backProp(NeuralNetwork *net, Mat *L2_Val, Mat *L1_Val, Mat *error, int n);
 NeuralNetwork* createNet(int iNeuronsCount, int hNeuronsCount, int oNeuronsCount, double learningRate);
 void trainNetwork(NeuralNetwork* net, Mat* input_data, Mat* output_data);
 void networkTrainImgs(NeuralNetwork* net, Img** imgs, int batch_size);
+void networkTrainImgs2(NeuralNetwork* net, Img** imgs, int batch_size);
+int returnPredictedNumber(NeuralNetwork* net, Img** imgs, int n);
 Mat* networkPredictImg(NeuralNetwork* net, Img* img);
 double networkPredictIamges(NeuralNetwork* net, Img** imgs, int n);
 Mat* networkPredict(NeuralNetwork* net, Mat* input_data);

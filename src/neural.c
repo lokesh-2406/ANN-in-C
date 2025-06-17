@@ -261,7 +261,7 @@ Mat* networkPredict(NeuralNetwork* net, Mat* input_data) {
 }
 
 void networkSave(NeuralNetwork* net, char* file_string) {
-	mkdir(file_string);
+	mkdir(file_string,0777);
 	chdir(file_string);
 	FILE* descriptor = fopen("descriptor", "w");
 	fprintf(descriptor, "%d\n", net->iNeurons);
