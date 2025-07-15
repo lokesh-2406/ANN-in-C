@@ -5,3 +5,5 @@ main
 # Ignore testing logs or temporary files
 /testing/*.txt
 .vscode/
+/.vscode
+/data
