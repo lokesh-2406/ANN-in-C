@@ -9,7 +9,7 @@ import os
 app = Flask(__name__, static_folder="web")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-BINARY = os.path.join(BASE_DIR, "main.exe")
+BINARY = os.path.join(BASE_DIR, "main")
 MODEL_DIR = os.path.join(BASE_DIR, "testing_net")
 
 print("Binary path:", BINARY)
@@ -74,6 +74,37 @@ def predict():
             os.unlink(tmp_path)
         except Exception:
             pass
+
+@app.route("/predict-draw", methods=["POST"])
+def predict_draw():
+    data = request.get_json()
+
+    if "csv" not in data:
+        return jsonify({"error": "No CSV data"}), 400
+
+    csv_row = data["csv"]
+
+    # Write the CSV to a temp file for the C binary
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
+        tmp.write((csv_row + "\n").encode())
+        tmp_path = tmp.name
+
+    try:
+        cmd = [BINARY, "--predict", "--input", tmp_path, "--model", MODEL_DIR]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+
+        stdout = proc.stdout.strip()
+
+        # Extract JSON from stdout
+        import re, json
+        match = re.search(r"\{.*\}$", stdout, flags=re.DOTALL)
+        if not match:
+            return jsonify({"error": "cannot-parse-output", "raw": stdout}), 500
+
+        return jsonify(json.loads(match.group(0)))
+
+    finally:
+        os.remove(tmp_path)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

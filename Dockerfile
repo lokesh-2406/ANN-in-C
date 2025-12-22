@@ -1,38 +1,48 @@
-# Stage 1: build C binary
-FROM gcc:12 as builder
+# ============================
+# Stage 1 — Build C Binary
+# ============================
+FROM gcc:12 AS builder
+
 WORKDIR /build
+
+# Copy all source code
 COPY . /build
-# build binary, use your Makefile
+
+# Build C project (Makefile already present)
 RUN make
 
-# Stage 2: runtime image with Python
+# ============================
+# Stage 2 — Runtime Image
+# ============================
 FROM python:3.11-slim
+
 WORKDIR /app
 
-# system deps for running (if any)
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+# Install minimal system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy binary and model artifact into the image.
-# Option A: If you commit testing_net into repo, it will be available in the built context.
-# Option B (recommended): use CI to download model artifact into build context, then COPY it here.
+# Copy binary + model artifacts from builder stage
 COPY --from=builder /build/main /app/main
-# Copy model dir if present
-COPY testing_net /app/testing_net
+COPY --from=builder /build/testing_net /app/testing_net
 
-# Copy python app
-COPY app.py /app/app.py
-COPY requirements.txt /app/requirements.txt
-# Optional: static files
+# Copy frontend
 COPY web /app/web
 
+# Copy the Flask app
+COPY app.py /app/app.py
+COPY requirements.txt /app/requirements.txt
+
+# Install Python deps
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create non-root user
-RUN groupadd -g 1000 appuser && useradd -r -u 1000 -g appuser appuser
-RUN chown -R appuser:appuser /app
+# Use non-root user
+RUN adduser --disabled-password --gecos "" appuser
 USER appuser
 
-# Use gunicorn with 4 workers (adjust for your CPU)
-ENV PORT=5000
-EXPOSE 5000
-CMD ["gunicorn", "app:app", "-b", "0.0.0.0:5000", "-w", "4", "--timeout", "60"]
+# Expose port
+EXPOSE 10000
+
+# Start Gunicorn server
+CMD ["gunicorn", "app:app", "-b", "0.0.0.0:10000", "-w", "2", "--timeout", "60"]
