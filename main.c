@@ -5,6 +5,7 @@
 #include "img.h"
 #include "neural.h"
 #include "matrix.h"
+#include <string.h>
 
 
 void train()
@@ -48,28 +49,94 @@ void predict()
 
 }
 
-int main() {
+// int main() {
 
-	srand(time(NULL));
+// 	srand(time(NULL));
 
-	printf("Welcome to Handwritten Digit Recognizer!");
-	printf("\n0. Train Network \n1. Test Network \n2. Recognize Handwritten Digit\n");
-	int n;
-	printf("Enter option number: ");
-	scanf("%d", &n);
+// 	printf("Welcome to Handwritten Digit Recognizer!");
+// 	printf("\n0. Train Network \n1. Test Network \n2. Recognize Handwritten Digit\n");
+// 	int n;
+// 	printf("Enter option number: ");
+// 	scanf("%d", &n);
 
-	//TRAINING
-	if(n==0)
-		train();
+// 	//TRAINING
+// 	if(n==0)
+// 		train();
 
-	//TESTING
-	if(n==1)
-		test();
+// 	//TESTING
+// 	if(n==1)
+// 		test();
 
-	//PREDICT
-	if(n==2)
-		predict();
+// 	//PREDICT
+// 	if(n==2)
+// 		predict();
 	
-	return 0;
+// 	return 0;
 	
+// }
+int main(int argc, char *argv[]) {
+    srand(time(NULL));
+
+    // CLI-only mode: --predict --input <csv> --model <dir>
+    int do_predict = 0;
+    char input_file[1024] = "";
+    char model_dir[1024] = "testing_net"; // default
+
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--predict") == 0) {
+            do_predict = 1;
+        } else if (strcmp(argv[i], "--input") == 0 && i + 1 < argc) {
+            strncpy(input_file, argv[++i], sizeof(input_file)-1);
+        } else if (strcmp(argv[i], "--model") == 0 && i + 1 < argc) {
+            strncpy(model_dir, argv[++i], sizeof(model_dir)-1);
+        } else if (strcmp(argv[i], "--help") == 0) {
+            printf("Usage:\n");
+            printf("  Interactive: ./main\n");
+            printf("  CLI predict: ./main --predict --input /path/to/digit.csv --model /path/to/testing_net\n");
+            return 0;
+        }
+    }
+
+    if (do_predict) {
+        if (input_file[0] == '\0') {
+            fprintf(stderr, "{\"error\":\"--input <file> required\"}\n");
+            return 2;
+        }
+
+        // Non-interactive predict path.
+        Img** images = csvImgs(input_file, 1);
+        if (!images) {
+            fprintf(stderr, "{\"error\":\"failed to open input file\"}\n");
+            return 3;
+        }
+
+        NeuralNetwork* net3 = networkLoad(model_dir);
+        if (!net3) {
+            fprintf(stderr, "{\"error\":\"failed to load model\"}\n");
+            imgs_free(images, 1);
+            return 4;
+        }
+
+        int prediction = returnPredictedNumber(net3, images, 1);
+
+        // Output JSON for easy parsing
+        printf("{\"prediction\": %d}\n", prediction);
+
+        imgs_free(images, 1);
+        networkFree(net3);
+        return 0;
+    }
+
+    // Otherwise fall back to interactive behavior (your original menu)
+    printf("Welcome to Handwritten Digit Recognizer!\n");
+    printf("\n0. Train Network \n1. Test Network \n2. Recognize Handwritten Digit\n");
+    int n;
+    printf("Enter option number: ");
+    if (scanf("%d", &n) != 1) return 0;
+
+    if (n==0) train();
+    if (n==1) test();
+    if (n==2) predict();
+
+    return 0;
 }

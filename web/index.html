@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>ANN Digit Predictor</title></head>
+  <body>
+    <h1>Upload digit CSV</h1>
+    <form id="uploadForm">
+      <input type="file" id="fileInput" name="file" accept=".csv"/><br/><br/>
+      <button type="submit">Predict</button>
+    </form>
+    <pre id="result"></pre>
+
+    <script>
+      const form = document.getElementById('uploadForm');
+      const result = document.getElementById('result');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById('fileInput');
+        if (!fileInput.files.length) { result.textContent = "Choose a file"; return; }
+        const fd = new FormData();
+        fd.append('file', fileInput.files[0]);
+        result.textContent = "Uploading...";
+        try {
+          const r = await fetch('/predict', { method: 'POST', body: fd });
+          const j = await r.json();
+          result.textContent = JSON.stringify(j, null, 2);
+        } catch (err) {
+          result.textContent = "Error: " + err;
+        }
+      });
+    </script>
+  </body>
+</html>
