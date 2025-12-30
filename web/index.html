@@ -86,10 +86,11 @@ button:hover { background:#005dcc; }
 <div class="container">
   <h1>Digit Recognition</h1>
 
-  <h3>Draw Digit (28×28)</h3>
-  <canvas id="board" width="28" height="28"></canvas><br>
-  <button onclick="clearCanvas()">Clear</button>
-  <button onclick="predictDraw()">Predict</button>
+<h3>Draw Digit (28×28)</h3>
+<canvas id="board" width="280" height="280"></canvas><br>
+<button onclick="clearCanvas()">Clear</button>
+<button onclick="predictDraw()">Predict</button>
+
 
   <hr>
 
@@ -112,11 +113,12 @@ button:hover { background:#005dcc; }
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
 
-const SIZE = 28;
-const BRUSH = 1; // pure MNIST pixel squares
+const DISPLAY = 280;   // visible size
+const SIZE = 28;       // logical MNIST size
+const CELL = DISPLAY / SIZE;
 
-ctx.fillStyle="black";
-ctx.fillRect(0,0,SIZE,SIZE);
+ctx.fillStyle = "black";
+ctx.fillRect(0,0,DISPLAY,DISPLAY);
 
 let drawing = false;
 
@@ -128,50 +130,31 @@ canvas.addEventListener("mousemove", drawPixel);
 function drawPixel(e){
   if(!drawing) return;
 
-  const x = Math.floor(e.offsetX);
-  const y = Math.floor(e.offsetY);
+  const x = Math.floor(e.offsetX / CELL);
+  const y = Math.floor(e.offsetY / CELL);
 
   ctx.fillStyle = "white";
-  ctx.fillRect(x, y, BRUSH, BRUSH);
+  ctx.fillRect(x*CELL, y*CELL, CELL, CELL);
 }
 
 function clearCanvas(){
   ctx.fillStyle="black";
-  ctx.fillRect(0,0,SIZE,SIZE);
-}
-
-function showPrediction(data) {
-  const box = document.getElementById("resultBox");
-  const value = document.getElementById("value");
-  const label = document.getElementById("label");
-
-  box.classList.remove("hidden");
-
-  if (data.prediction !== undefined) {
-    box.classList.remove("error");
-    box.classList.add("success");
-    label.textContent = "Predicted Digit";
-    value.textContent = data.prediction;
-  } else {
-    box.classList.remove("success");
-    box.classList.add("error");
-    label.textContent = "Error";
-    value.textContent = "!";
-  }
-
-  box.style.transform = "scale(0.9)";
-  setTimeout(() => box.style.transform = "scale(1)", 120);
+  ctx.fillRect(0,0,DISPLAY,DISPLAY);
 }
 
 async function predictDraw(){
   document.getElementById("loading").classList.remove("hidden");
 
-  const imgData = ctx.getImageData(0,0,SIZE,SIZE).data;
+  // downsample manually into 28×28 grayscale
   let pixels = [];
+  const img = ctx.getImageData(0,0,DISPLAY,DISPLAY).data;
 
-  for(let i=0;i<imgData.length;i+=4){
-    const r = imgData[i];
-    pixels.push(r);
+  for(let y=0; y<SIZE; y++){
+    for(let x=0; x<SIZE; x++){
+      const pxIndex = ((y*CELL)*DISPLAY + (x*CELL)) * 4;
+      const r = img[pxIndex];
+      pixels.push(r);
+    }
   }
 
   const csvRow = pixels.join(",");
@@ -187,7 +170,6 @@ async function predictDraw(){
 
   document.getElementById("loading").classList.add("hidden");
 }
-
 // CSV Upload
 const form = document.getElementById("uploadForm");
 form.addEventListener("submit", async (e)=>{
