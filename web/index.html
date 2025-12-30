@@ -27,6 +27,7 @@ canvas {
   border-radius:10px;
   cursor:crosshair;
 }
+
 button {
   background:#0078ff;
   border:none;
@@ -38,11 +39,44 @@ button {
 }
 button:hover { background:#005dcc; }
 
-#result {
-  margin-top:20px;
-  padding:12px;
-  background:#eef3ff;
-  border-radius:8px;
+.result {
+  margin-top: 25px;
+  padding: 18px;
+  border-radius: 12px;
+  background: #eef3ff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: .25s ease;
+}
+
+.result.success {
+  background: #e7ffef;
+  border: 2px solid #3ecf57;
+}
+
+.result.error {
+  background: #ffe7e7;
+  border: 2px solid #ff4d4d;
+}
+
+.result #label {
+  font-size: 14px;
+  color: #666;
+}
+
+.result #value {
+  font-size: 48px;
+  font-weight: 700;
+  color: #222;
+}
+
+.hidden { display:none; }
+
+#loading {
+  margin-top: 10px;
+  color:#0078ff;
+  font-weight:600;
 }
 </style>
 </head>
@@ -52,7 +86,7 @@ button:hover { background:#005dcc; }
 <div class="container">
   <h1>Digit Recognition</h1>
 
-  <h3>Draw Digit</h3>
+  <h3>Draw Digit (28×28)</h3>
   <canvas id="board" width="28" height="28"></canvas><br>
   <button onclick="clearCanvas()">Clear</button>
   <button onclick="predictDraw()">Predict</button>
@@ -65,7 +99,12 @@ button:hover { background:#005dcc; }
     <button type="submit">Predict</button>
   </form>
 
-  <pre id="result"></pre>
+  <div id="loading" class="hidden">⏳ Predicting…</div>
+
+  <div id="resultBox" class="result hidden">
+      <div id="label">Prediction</div>
+      <div id="value">—</div>
+  </div>
 </div>
 
 
@@ -73,42 +112,66 @@ button:hover { background:#005dcc; }
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
 
+const SIZE = 28;
+const BRUSH = 1; // pure MNIST pixel squares
+
 ctx.fillStyle="black";
-ctx.fillRect(0,0,28,28);
+ctx.fillRect(0,0,SIZE,SIZE);
 
-let drawing=false;
+let drawing = false;
 
-canvas.addEventListener("mousedown",()=>drawing=true);
-canvas.addEventListener("mouseup",()=>drawing=false);
-canvas.addEventListener("mousemove",draw);
+canvas.addEventListener("mousedown", ()=> drawing=true);
+canvas.addEventListener("mouseup", ()=> drawing=false);
+canvas.addEventListener("mouseleave", ()=> drawing=false);
+canvas.addEventListener("mousemove", drawPixel);
 
-function draw(e){
+function drawPixel(e){
   if(!drawing) return;
-  ctx.fillStyle="white";
-  ctx.beginPath();
-  ctx.arc(e.offsetX, e.offsetY, 12, 0, Math.PI*2);
-  ctx.fill();
+
+  const x = Math.floor(e.offsetX);
+  const y = Math.floor(e.offsetY);
+
+  ctx.fillStyle = "white";
+  ctx.fillRect(x, y, BRUSH, BRUSH);
 }
 
 function clearCanvas(){
   ctx.fillStyle="black";
-  ctx.fillRect(0,0,28,28);
+  ctx.fillRect(0,0,SIZE,SIZE);
+}
+
+function showPrediction(data) {
+  const box = document.getElementById("resultBox");
+  const value = document.getElementById("value");
+  const label = document.getElementById("label");
+
+  box.classList.remove("hidden");
+
+  if (data.prediction !== undefined) {
+    box.classList.remove("error");
+    box.classList.add("success");
+    label.textContent = "Predicted Digit";
+    value.textContent = data.prediction;
+  } else {
+    box.classList.remove("success");
+    box.classList.add("error");
+    label.textContent = "Error";
+    value.textContent = "!";
+  }
+
+  box.style.transform = "scale(0.9)";
+  setTimeout(() => box.style.transform = "scale(1)", 120);
 }
 
 async function predictDraw(){
-  // downscale 280x280 → 28x28 grayscale
-  const small = document.createElement("canvas");
-  small.width=28;
-  small.height=28;
-  const sctx = small.getContext("2d");
-  sctx.drawImage(canvas,0,0,28,28);
+  document.getElementById("loading").classList.remove("hidden");
 
-  let pixels=[];
-  const imgData = sctx.getImageData(0,0,28,28).data;
+  const imgData = ctx.getImageData(0,0,SIZE,SIZE).data;
+  let pixels = [];
 
   for(let i=0;i<imgData.length;i+=4){
     const r = imgData[i];
-    pixels.push(Math.round(r/255*255)); // normalize MNIST style
+    pixels.push(r);
   }
 
   const csvRow = pixels.join(",");
@@ -120,22 +183,31 @@ async function predictDraw(){
   });
 
   const data = await res.json();
-  document.getElementById("result").textContent =
-      JSON.stringify(data,null,2);
+  showPrediction(data);
+
+  document.getElementById("loading").classList.add("hidden");
 }
 
-// Upload CSV existing feature (unchanged)
+// CSV Upload
 const form = document.getElementById("uploadForm");
 form.addEventListener("submit", async (e)=>{
   e.preventDefault();
+
+  document.getElementById("loading").classList.remove("hidden");
+
   const file=document.getElementById("fileInput").files[0];
   if(!file) return;
+
   const fd=new FormData();
   fd.append("file",file);
+
   const res=await fetch("/predict",{method:"POST",body:fd});
-  document.getElementById("result")
-    .textContent=JSON.stringify(await res.json(),null,2);
+  const j = await res.json();
+  showPrediction(j);
+
+  document.getElementById("loading").classList.add("hidden");
 });
 </script>
+
 </body>
 </html>
