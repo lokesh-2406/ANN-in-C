@@ -87,7 +87,7 @@ button:hover { background:#005dcc; }
   <h1>Digit Recognition</h1>
 
   <h3>Draw Digit (28×28)</h3>
-  <canvas id="board" width="280" height="280"></canvas><br>
+  <canvas id="board" width="28" height="28"></canvas><br>
   <button onclick="clearCanvas()">Clear</button>
   <button onclick="predictDraw()">Predict</button>
 
@@ -109,19 +109,14 @@ button:hover { background:#005dcc; }
 
 
 <script>
-  let grid = Array.from({length: SIZE}, ()=> Array(SIZE).fill(0));
-
-/* ---------------- Canvas Logic ---------------- */
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
 
-const DISPLAY = 280;   // visible size
-const SIZE = 28;       // logical MNIST size
-const CELL = DISPLAY / SIZE;
+const SIZE = 28;
+const BRUSH = 1; // pure MNIST pixel squares
 
-ctx.fillStyle = "black";
-ctx.fillRect(0,0,DISPLAY,DISPLAY);
-  grid[y][x] = 255;
+ctx.fillStyle="black";
+ctx.fillRect(0,0,SIZE,SIZE);
 
 let drawing = false;
 
@@ -133,19 +128,18 @@ canvas.addEventListener("mousemove", drawPixel);
 function drawPixel(e){
   if(!drawing) return;
 
-  const x = Math.floor(e.offsetX / CELL);
-  const y = Math.floor(e.offsetY / CELL);
+  const x = Math.floor(e.offsetX);
+  const y = Math.floor(e.offsetY);
 
   ctx.fillStyle = "white";
-  ctx.fillRect(x*CELL, y*CELL, CELL, CELL);
+  ctx.fillRect(x, y, BRUSH, BRUSH);
 }
 
 function clearCanvas(){
   ctx.fillStyle="black";
-  ctx.fillRect(0,0,DISPLAY,DISPLAY);
+  ctx.fillRect(0,0,SIZE,SIZE);
 }
 
-/* ---------------- Result UI ---------------- */
 function showPrediction(data) {
   const box = document.getElementById("resultBox");
   const value = document.getElementById("value");
@@ -153,7 +147,7 @@ function showPrediction(data) {
 
   box.classList.remove("hidden");
 
-  if (data && data.prediction !== undefined) {
+  if (data.prediction !== undefined) {
     box.classList.remove("error");
     box.classList.add("success");
     label.textContent = "Predicted Digit";
@@ -169,35 +163,32 @@ function showPrediction(data) {
   setTimeout(() => box.style.transform = "scale(1)", 120);
 }
 
-/* ---------------- Draw → Predict ---------------- */
 async function predictDraw(){
   document.getElementById("loading").classList.remove("hidden");
 
+  const imgData = ctx.getImageData(0,0,SIZE,SIZE).data;
   let pixels = [];
-  for (let y=0; y<SIZE; y++)
-  for (let x=0; x<SIZE; x++)
-    pixels.push(grid[y][x]);
+
+  for(let i=0;i<imgData.length;i+=4){
+    const r = imgData[i];
+    pixels.push(r);
+  }
 
   const csvRow = pixels.join(",");
 
-  try {
-    const res = await fetch("/predict-draw",{
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({csv:csvRow})
-    });
+  const res = await fetch("/predict-draw",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({csv:csvRow})
+  });
 
-    const data = await res.json();
-    showPrediction(data);
-  }
-  catch(err){
-    showPrediction({error:true});
-  }
+  const data = await res.json();
+  showPrediction(data);
 
   document.getElementById("loading").classList.add("hidden");
 }
 
-/* ---------------- CSV Upload ---------------- */
+// CSV Upload
 const form = document.getElementById("uploadForm");
 form.addEventListener("submit", async (e)=>{
   e.preventDefault();
@@ -210,13 +201,9 @@ form.addEventListener("submit", async (e)=>{
   const fd=new FormData();
   fd.append("file",file);
 
-  try {
-    const res=await fetch("/predict",{method:"POST",body:fd});
-    const j = await res.json();
-    showPrediction(j);
-  } catch(e){
-    showPrediction({error:true});
-  }
+  const res=await fetch("/predict",{method:"POST",body:fd});
+  const j = await res.json();
+  showPrediction(j);
 
   document.getElementById("loading").classList.add("hidden");
 });
