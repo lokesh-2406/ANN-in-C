@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <title>Digit Recognition</title>
 
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
 body {
   font-family: "Segoe UI", Roboto, Arial;
@@ -11,18 +13,30 @@ body {
   display:flex;
   justify-content:center;
 }
+
 .container {
   background:white;
-  width:450px;
-  margin-top:50px;
+  width: min(95vw, 460px);
+  margin-top:40px;
   padding:25px 30px;
   border-radius:14px;
   box-shadow:0 8px 18px rgba(0,0,0,.08);
   text-align:center;
 }
+
 h1 { margin-top:0; }
 
+/* Responsive canvas wrapper */
+.canvas-wrapper {
+  width:100%;
+  max-width:350px;
+  margin:auto;
+}
+
 canvas {
+  width:100%;          /* visually responsive */
+  height:auto;
+  image-rendering: pixelated; /* keep crisp pixels */
   background:black;
   border-radius:10px;
   cursor:crosshair;
@@ -32,22 +46,28 @@ button {
   background:#0078ff;
   border:none;
   color:white;
-  padding:10px 18px;
+  padding:12px 18px;
   border-radius:8px;
   cursor:pointer;
-  margin:10px;
+  margin:8px;
+  font-size:15px;
 }
+
 button:hover { background:#005dcc; }
+
+/* Mobile tap comfort */
+@media(max-width:600px){
+  button { width:95%; }
+}
 
 .result {
   margin-top: 25px;
   padding: 18px;
   border-radius: 12px;
   background: #eef3ff;
-  display: flex;
+  display:flex;
   flex-direction: column;
-  align-items: center;
-  transition: .25s ease;
+  align-items:center;
 }
 
 .result.success {
@@ -60,15 +80,9 @@ button:hover { background:#005dcc; }
   border: 2px solid #ff4d4d;
 }
 
-.result #label {
-  font-size: 14px;
-  color: #666;
-}
-
-.result #value {
+#value {
   font-size: 48px;
   font-weight: 700;
-  color: #222;
 }
 
 .hidden { display:none; }
@@ -82,12 +96,15 @@ button:hover { background:#005dcc; }
 </head>
 
 <body>
-
 <div class="container">
   <h1>Digit Recognition</h1>
 
   <h3>Draw Digit (28×28)</h3>
-  <canvas id="board" width="28" height="28"></canvas><br>
+
+  <div class="canvas-wrapper">
+    <canvas id="board" width="28" height="28"></canvas>
+  </div>
+
   <button onclick="clearCanvas()">Clear</button>
   <button onclick="predictDraw()">Predict</button>
 
@@ -102,8 +119,8 @@ button:hover { background:#005dcc; }
   <div id="loading" class="hidden">⏳ Predicting…</div>
 
   <div id="resultBox" class="result hidden">
-      <div id="label">Prediction</div>
-      <div id="value">—</div>
+    <div id="label">Prediction</div>
+    <div id="value">—</div>
   </div>
 </div>
 
@@ -111,28 +128,50 @@ button:hover { background:#005dcc; }
 <script>
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
-
 const SIZE = 28;
-const BRUSH = 1; // pure MNIST pixel squares
+const BRUSH = 1;
 
 ctx.fillStyle="black";
 ctx.fillRect(0,0,SIZE,SIZE);
 
-let drawing = false;
+let drawing=false;
 
-canvas.addEventListener("mousedown", ()=> drawing=true);
-canvas.addEventListener("mouseup", ()=> drawing=false);
-canvas.addEventListener("mouseleave", ()=> drawing=false);
-canvas.addEventListener("mousemove", drawPixel);
+/* Desktop mouse */
+canvas.addEventListener("mousedown",()=>drawing=true);
+canvas.addEventListener("mouseup",()=>drawing=false);
+canvas.addEventListener("mouseleave",()=>drawing=false);
+canvas.addEventListener("mousemove",drawPixel);
+
+/* Touch support */
+canvas.addEventListener("touchstart", e=>{
+  drawing=true;
+  drawTouch(e);
+});
+canvas.addEventListener("touchend", ()=>drawing=false);
+canvas.addEventListener("touchcancel", ()=>drawing=false);
+canvas.addEventListener("touchmove", drawTouch);
+
+function getCanvasPos(e){
+  const rect = canvas.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * SIZE;
+  const y = ((e.clientY - rect.top)  / rect.height) * SIZE;
+  return { x:Math.floor(x), y:Math.floor(y) };
+}
 
 function drawPixel(e){
   if(!drawing) return;
-
   const x = Math.floor(e.offsetX);
   const y = Math.floor(e.offsetY);
+  ctx.fillStyle="white";
+  ctx.fillRect(x,y,BRUSH,BRUSH);
+}
 
-  ctx.fillStyle = "white";
-  ctx.fillRect(x, y, BRUSH, BRUSH);
+function drawTouch(e){
+  if(!drawing) return;
+  const t = e.touches[0];
+  const pos = getCanvasPos(t);
+  ctx.fillStyle="white";
+  ctx.fillRect(pos.x,pos.y,BRUSH,BRUSH);
 }
 
 function clearCanvas(){
@@ -140,59 +179,51 @@ function clearCanvas(){
   ctx.fillRect(0,0,SIZE,SIZE);
 }
 
-function showPrediction(data) {
-  const box = document.getElementById("resultBox");
-  const value = document.getElementById("value");
-  const label = document.getElementById("label");
+function showPrediction(data){
+  const box=document.getElementById("resultBox");
+  const value=document.getElementById("value");
+  const label=document.getElementById("label");
 
   box.classList.remove("hidden");
 
-  if (data.prediction !== undefined) {
+  if(data.prediction!==undefined){
     box.classList.remove("error");
     box.classList.add("success");
-    label.textContent = "Predicted Digit";
-    value.textContent = data.prediction;
+    label.textContent="Predicted Digit";
+    value.textContent=data.prediction;
   } else {
     box.classList.remove("success");
     box.classList.add("error");
-    label.textContent = "Error";
-    value.textContent = "!";
+    label.textContent="Error";
+    value.textContent="!";
   }
-
-  box.style.transform = "scale(0.9)";
-  setTimeout(() => box.style.transform = "scale(1)", 120);
 }
 
 async function predictDraw(){
   document.getElementById("loading").classList.remove("hidden");
 
   const imgData = ctx.getImageData(0,0,SIZE,SIZE).data;
-  let pixels = [];
-
+  let pixels=[];
   for(let i=0;i<imgData.length;i+=4){
-    const r = imgData[i];
-    pixels.push(r);
+    pixels.push(imgData[i]);
   }
 
-  const csvRow = pixels.join(",");
+  const csvRow=pixels.join(",");
 
-  const res = await fetch("/predict-draw",{
+  const res=await fetch("/predict-draw",{
     method:"POST",
     headers:{ "Content-Type":"application/json" },
     body:JSON.stringify({csv:csvRow})
   });
 
-  const data = await res.json();
-  showPrediction(data);
-
+  showPrediction(await res.json());
   document.getElementById("loading").classList.add("hidden");
 }
 
-// CSV Upload
-const form = document.getElementById("uploadForm");
+/* CSV upload */
+const form=document.getElementById("uploadForm");
 form.addEventListener("submit", async (e)=>{
   e.preventDefault();
-
   document.getElementById("loading").classList.remove("hidden");
 
   const file=document.getElementById("fileInput").files[0];
@@ -202,8 +233,7 @@ form.addEventListener("submit", async (e)=>{
   fd.append("file",file);
 
   const res=await fetch("/predict",{method:"POST",body:fd});
-  const j = await res.json();
-  showPrediction(j);
+  showPrediction(await res.json());
 
   document.getElementById("loading").classList.add("hidden");
 });
