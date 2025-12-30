@@ -109,6 +109,8 @@ button:hover { background:#005dcc; }
 
 
 <script>
+  let grid = Array.from({length: SIZE}, ()=> Array(SIZE).fill(0));
+
 /* ---------------- Canvas Logic ---------------- */
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
@@ -119,6 +121,7 @@ const CELL = DISPLAY / SIZE;
 
 ctx.fillStyle = "black";
 ctx.fillRect(0,0,DISPLAY,DISPLAY);
+  grid[y][x] = 255;
 
 let drawing = false;
 
@@ -171,15 +174,9 @@ async function predictDraw(){
   document.getElementById("loading").classList.remove("hidden");
 
   let pixels = [];
-  const img = ctx.getImageData(0,0,DISPLAY,DISPLAY).data;
-
-  for(let y=0; y<SIZE; y++){
-    for(let x=0; x<SIZE; x++){
-      const pxIndex = ((y*CELL)*DISPLAY + (x*CELL)) * 4;
-      const r = img[pxIndex];
-      pixels.push(r);
-    }
-  }
+  for (let y=0; y<SIZE; y++)
+  for (let x=0; x<SIZE; x++)
+    pixels.push(grid[y][x]);
 
   const csvRow = pixels.join(",");
 
