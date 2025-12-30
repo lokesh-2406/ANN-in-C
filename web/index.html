@@ -35,10 +35,9 @@ h1 { margin-top:0; }
 
 canvas {
   width:100%;          /* visually responsive */
-  height:auto;
+  height:50%;
   image-rendering: pixelated; /* keep crisp pixels */
   background:black;
-  border-radius:10px;
   cursor:crosshair;
 }
 
@@ -110,11 +109,11 @@ button:hover { background:#005dcc; }
 
   <hr>
 
-  <h3>Or Upload CSV</h3>
+  <!-- <h3>Or Upload CSV</h3>
   <form id="uploadForm">
     <input type="file" id="fileInput" name="file" accept=".csv"/>
     <button type="submit">Predict</button>
-  </form>
+  </form> -->
 
   <div id="loading" class="hidden">⏳ Predicting…</div>
 
@@ -160,11 +159,15 @@ function getCanvasPos(e){
 
 function drawPixel(e){
   if(!drawing) return;
-  const x = Math.floor(e.offsetX);
-  const y = Math.floor(e.offsetY);
-  ctx.fillStyle="white";
-  ctx.fillRect(x,y,BRUSH,BRUSH);
+
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor(((e.clientX - rect.left) / rect.width) * SIZE);
+  const y = Math.floor(((e.clientY - rect.top)  / rect.height) * SIZE);
+
+  ctx.fillStyle = "white";
+  ctx.fillRect(x, y, BRUSH, BRUSH);
 }
+
 
 function drawTouch(e){
   if(!drawing) return;
