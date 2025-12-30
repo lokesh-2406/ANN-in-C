@@ -6,6 +6,14 @@
 #include <string.h>
 #include "matrix.h"
 #include <math.h>
+#include <errno.h>
+
+#ifdef _WIN32
+  #include <direct.h>
+  #define MKDIR(path) _mkdir(path)
+#else
+  #define MKDIR(path) mkdir((path), 0777)
+#endif
 
 #define MAXLEN 60000
 
@@ -260,39 +268,120 @@ Mat* networkPredict(NeuralNetwork* net, Mat* input_data) {
 	return result;
 }
 
+// void networkSave(NeuralNetwork* net, char* file_string) {
+// 	mkdir(file_string);
+// 	chdir(file_string);
+// 	FILE* descriptor = fopen("descriptor", "w");
+// 	fprintf(descriptor, "%d\n", net->iNeurons);
+// 	fprintf(descriptor, "%d\n", net->hNeurons);
+// 	fprintf(descriptor, "%d\n", net->oNeurons);
+// 	fclose(descriptor);
+// 	mSave(net->hWeights, "hidden");
+// 	mSave(net->oWeights, "output");
+// 	printf("Written successfully to '%s'\n", file_string);
+// 	chdir("-"); 
+// }
 void networkSave(NeuralNetwork* net, char* file_string) {
-	mkdir(file_string);
-	chdir(file_string);
-	FILE* descriptor = fopen("descriptor", "w");
-	fprintf(descriptor, "%d\n", net->iNeurons);
-	fprintf(descriptor, "%d\n", net->hNeurons);
-	fprintf(descriptor, "%d\n", net->oNeurons);
-	fclose(descriptor);
-	mSave(net->hWeights, "hidden");
-	mSave(net->oWeights, "output");
-	printf("Written successfully to '%s'\n", file_string);
-	chdir("-"); 
+    char path[1024];
+
+    // Create directory if not exists
+    if (MKDIR(file_string) != 0 && errno != EEXIST) {
+        fprintf(stderr, "Failed to create directory %s\n", file_string);
+        return;
+    }
+
+    // descriptor
+    snprintf(path, sizeof(path), "%s/descriptor", file_string);
+    FILE* descriptor = fopen(path, "w");
+    if (!descriptor) {
+        fprintf(stderr, "Failed to open %s\n", path);
+        return;
+    }
+
+    fprintf(descriptor, "%d\n", net->iNeurons);
+    fprintf(descriptor, "%d\n", net->hNeurons);
+    fprintf(descriptor, "%d\n", net->oNeurons);
+    fclose(descriptor);
+
+    // hidden weights
+    snprintf(path, sizeof(path), "%s/hidden", file_string);
+    mSave(net->hWeights, path);
+
+    // output weights
+    snprintf(path, sizeof(path), "%s/output", file_string);
+    mSave(net->oWeights, path);
+
+    fprintf(stderr, "Written successfully to '%s'\n", file_string);
 }
+
+
+// NeuralNetwork* networkLoad(char* file_string) {
+// 	NeuralNetwork* net = malloc(sizeof(NeuralNetwork));
+// 	char entry[MAXLEN];
+// 	chdir(file_string);
+
+// 	FILE* descriptor = fopen("descriptor", "r");
+// 	fgets(entry, MAXLEN, descriptor);
+// 	net->iNeurons = atoi(entry);
+// 	fgets(entry, MAXLEN, descriptor);
+// 	net->hNeurons = atoi(entry);
+// 	fgets(entry, MAXLEN, descriptor);
+// 	net->oNeurons = atoi(entry);
+// 	fclose(descriptor);
+// 	net->hWeights = mLoad("hidden");
+// 	net->oWeights = mLoad("output");
+// 	printf("Loaded network successfully from '%s'\n", file_string);
+// 	chdir("-"); 
+// 	return net;
+// }
 
 NeuralNetwork* networkLoad(char* file_string) {
-	NeuralNetwork* net = malloc(sizeof(NeuralNetwork));
-	char entry[MAXLEN];
-	chdir(file_string);
+    NeuralNetwork* net = malloc(sizeof(NeuralNetwork));
+    if (!net) return NULL;
 
-	FILE* descriptor = fopen("descriptor", "r");
-	fgets(entry, MAXLEN, descriptor);
-	net->iNeurons = atoi(entry);
-	fgets(entry, MAXLEN, descriptor);
-	net->hNeurons = atoi(entry);
-	fgets(entry, MAXLEN, descriptor);
-	net->oNeurons = atoi(entry);
-	fclose(descriptor);
-	net->hWeights = mLoad("hidden");
-	net->oWeights = mLoad("output");
-	printf("Loaded network successfully from '%s'\n", file_string);
-	chdir("-"); 
-	return net;
+    char path[1024];
+    char entry[MAXLEN];
+
+    // descriptor
+    snprintf(path, sizeof(path), "%s/descriptor", file_string);
+    FILE* descriptor = fopen(path, "r");
+    if (!descriptor) {
+        fprintf(stderr, "Failed to open %s\n", path);
+        free(net);
+        return NULL;
+    }
+
+    fgets(entry, MAXLEN, descriptor);
+    net->iNeurons = atoi(entry);
+    fgets(entry, MAXLEN, descriptor);
+    net->hNeurons = atoi(entry);
+    fgets(entry, MAXLEN, descriptor);
+    net->oNeurons = atoi(entry);
+    fclose(descriptor);
+
+    // hidden
+    snprintf(path, sizeof(path), "%s/hidden", file_string);
+    net->hWeights = mLoad(path);
+    if (!net->hWeights) {
+        fprintf(stderr, "Failed to load hidden weights\n");
+        free(net);
+        return NULL;
+    }
+
+    // output
+    snprintf(path, sizeof(path), "%s/output", file_string);
+    net->oWeights = mLoad(path);
+    if (!net->oWeights) {
+        fprintf(stderr, "Failed to load output weights\n");
+        mDel(net->hWeights);
+        free(net);
+        return NULL;
+    }
+
+    fprintf(stderr, "Loaded network successfully from '%s'\n", file_string);
+    return net;
 }
+
 
 void networkPrint(NeuralNetwork* net) {
 	printf("# of Inputs: %d\n", net->iNeurons);
