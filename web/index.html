@@ -1,131 +1,141 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Digit Recognition</title>
-  <style>
-    body {
-      font-family: "Segoe UI", Roboto, Arial, sans-serif;
-      background: #f5f7fa;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-    }
+<meta charset="utf-8">
+<title>Digit Recognition</title>
 
-    .container {
-      background: white;
-      width: 420px;
-      margin-top: 60px;
-      padding: 30px 35px;
-      border-radius: 14px;
-      box-shadow: 0 8px 18px rgba(0,0,0,0.08);
-      text-align: center;
-    }
+<style>
+body {
+  font-family: "Segoe UI", Roboto, Arial;
+  background:#f5f7fa;
+  display:flex;
+  justify-content:center;
+}
+.container {
+  background:white;
+  width:450px;
+  margin-top:50px;
+  padding:25px 30px;
+  border-radius:14px;
+  box-shadow:0 8px 18px rgba(0,0,0,.08);
+  text-align:center;
+}
+h1 { margin-top:0; }
 
-    h1 {
-      margin-top: 0;
-      font-weight: 600;
-      font-size: 26px;
-      color: #222;
-    }
+canvas {
+  background:black;
+  border-radius:10px;
+  cursor:crosshair;
+}
+button {
+  background:#0078ff;
+  border:none;
+  color:white;
+  padding:10px 18px;
+  border-radius:8px;
+  cursor:pointer;
+  margin:10px;
+}
+button:hover { background:#005dcc; }
 
-    input[type="file"] {
-      margin: 15px auto;
-      padding: 10px;
-      cursor: pointer;
-    }
-
-    button {
-      background: #0078ff;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      font-size: 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: 0.2s ease;
-      margin-top: 10px;
-    }
-
-    button:hover {
-      background: #005fcc;
-    }
-
-    #result {
-      margin-top: 25px;
-      padding: 15px;
-      background: #f0f4ff;
-      color: #333;
-      border-radius: 8px;
-      font-size: 15px;
-      text-align: left;
-      white-space: pre-wrap;
-    }
-
-    .loader {
-      margin: 20px auto;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #0078ff;
-      border-radius: 50%;
-      width: 28px;
-      height: 28px;
-      animation: spin 1s linear infinite;
-      display: none;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  </style>
+#result {
+  margin-top:20px;
+  padding:12px;
+  background:#eef3ff;
+  border-radius:8px;
+}
+</style>
 </head>
 
 <body>
-  <div class="container">
-    <h1>Upload Digit CSV</h1>
 
-    <form id="uploadForm">
-      <input type="file" id="fileInput" name="file" accept=".csv" />
-      <br>
-      <button type="submit">Predict</button>
-    </form>
+<div class="container">
+  <h1>Digit Recognition</h1>
 
-    <div class="loader" id="loadingSpinner"></div>
+  <h3>Draw Digit</h3>
+  <canvas id="board" width="280" height="280"></canvas><br>
+  <button onclick="clearCanvas()">Clear</button>
+  <button onclick="predictDraw()">Predict</button>
 
-    <pre id="result"></pre>
-  </div>
+  <hr>
 
-  <script>
-    const form = document.getElementById("uploadForm");
-    const result = document.getElementById("result");
-    const spinner = document.getElementById("loadingSpinner");
+  <h3>Or Upload CSV</h3>
+  <form id="uploadForm">
+    <input type="file" id="fileInput" name="file" accept=".csv"/>
+    <button type="submit">Predict</button>
+  </form>
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const file = document.getElementById("fileInput").files[0];
-      if (!file) {
-        result.textContent = "Please choose a file first.";
-        return;
-      }
+  <pre id="result"></pre>
+</div>
 
-      const fd = new FormData();
-      fd.append("file", file);
 
-      result.textContent = "";
-      spinner.style.display = "block";
+<script>
+const canvas = document.getElementById("board");
+const ctx = canvas.getContext("2d");
 
-      try {
-        const r = await fetch("/predict", { method: "POST", body: fd });
-        const j = await r.json();
-        spinner.style.display = "none";
+ctx.fillStyle="black";
+ctx.fillRect(0,0,280,280);
 
-        result.textContent = JSON.stringify(j, null, 2);
-      } catch (err) {
-        spinner.style.display = "none";
-        result.textContent = "Error: " + err;
-      }
-    });
-  </script>
+let drawing=false;
+
+canvas.addEventListener("mousedown",()=>drawing=true);
+canvas.addEventListener("mouseup",()=>drawing=false);
+canvas.addEventListener("mousemove",draw);
+
+function draw(e){
+  if(!drawing) return;
+  ctx.fillStyle="white";
+  ctx.beginPath();
+  ctx.arc(e.offsetX, e.offsetY, 12, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function clearCanvas(){
+  ctx.fillStyle="black";
+  ctx.fillRect(0,0,280,280);
+}
+
+async function predictDraw(){
+  // downscale 280x280 → 28x28 grayscale
+  const small = document.createElement("canvas");
+  small.width=28;
+  small.height=28;
+  const sctx = small.getContext("2d");
+  sctx.drawImage(canvas,0,0,28,28);
+
+  let pixels=[];
+  const imgData = sctx.getImageData(0,0,28,28).data;
+
+  for(let i=0;i<imgData.length;i+=4){
+    const r = imgData[i];
+    pixels.push(Math.round(r/255*255)); // normalize MNIST style
+  }
+
+  const csvRow = pixels.join(",");
+
+  const res = await fetch("/predict-draw",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({csv:csvRow})
+  });
+
+  const data = await res.json();
+  document.getElementById("result").textContent =
+      JSON.stringify(data,null,2);
+}
+
+// Upload CSV existing feature (unchanged)
+const form = document.getElementById("uploadForm");
+form.addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const file=document.getElementById("fileInput").files[0];
+  if(!file) return;
+  const fd=new FormData();
+  fd.append("file",file);
+  const res=await fetch("/predict",{method:"POST",body:fd});
+  document.getElementById("result")
+    .textContent=JSON.stringify(await res.json(),null,2);
+});
+</script>
 </body>
 </html>

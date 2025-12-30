@@ -84,18 +84,21 @@ def predict_draw():
 
     csv_row = data["csv"]
 
-    # Write the CSV to a temp file for the C binary
+    # We need 2 lines:
+    # line 1: dummy header
+    # line 2: dummy label + pixels
+    content = "header\n0," + csv_row + "\n"
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
-        tmp.write((csv_row + "\n").encode())
+        tmp.write(content.encode())
         tmp_path = tmp.name
 
     try:
         cmd = [BINARY, "--predict", "--input", tmp_path, "--model", MODEL_DIR]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
         stdout = proc.stdout.strip()
 
-        # Extract JSON from stdout
         import re, json
         match = re.search(r"\{.*\}$", stdout, flags=re.DOTALL)
         if not match:
